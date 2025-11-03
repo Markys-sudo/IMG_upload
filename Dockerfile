@@ -1,18 +1,15 @@
-# Використовуємо Python 3.12
-FROM python:3.12-slim
+# Dockerfile
+FROM python:3.12-slim AS builder
 
-# Робоча директорія всередині контейнера
+# Створюємо робочу директорію
 WORKDIR /app
 
-# Встановлення залежностей
+# Копіюємо requirements і встановлюємо залежності
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копіюємо решту проєкту
-COPY . .
+# Копіюємо весь бекенд
+COPY app.py .
 
-# Відкритий порт для FastAPI
-EXPOSE 8000
-
-# Команда запуску бекенду
+# Команда запуску
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
