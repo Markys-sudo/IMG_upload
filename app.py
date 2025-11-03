@@ -6,6 +6,7 @@ from datetime import datetime
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse
 
+
 # Конфігурація шляхів
 IMAGES_DIR = "/images"
 LOGS_DIR = "/logs"
@@ -27,39 +28,20 @@ logging.basicConfig(
 
 app = FastAPI(title="Image Hosting Service")
 
-@app.get("/", response_class=HTMLResponse)
-async def read_root():
-    return """
-    <html>
-        <head>
-            <title>Image Hosting Service</title>
-        </head>
-        <body>
-            <h1>Ласкаво просимо до Image Hosting Service!</h1>
-            <p>Ви можете завантажувати зображення та отримувати прямі посилання.</p>
-            <ul>
-                <li><a href="/upload_form">Завантажити зображення</a></li>
-            </ul>
-        </body>
-    </html>
-    """
+# Статичні файли (CSS, JS, картинки фронтенду)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.get("/upload_form", response_class=HTMLResponse)
-async def upload_form():
-    return """
-    <html>
-        <head>
-            <title>Завантажити зображення</title>
-        </head>
-        <body>
-            <h2>Завантажити зображення</h2>
-            <form action="/upload" enctype="multipart/form-data" method="post">
-                <input name="file" type="file" accept=".jpg,.jpeg,.png,.gif">
-                <input type="submit" value="Завантажити">
-            </form>
-        </body>
-    </html>
-    """
+# Головна сторінка
+@app.get("/")
+async def root():
+    return FileResponse("static/image-uploader/index.html")
+@app.get("/images")
+async def images_page():
+    return FileResponse("static/form/images.html")
+
+@app.get("/upload")
+async def upload_page():
+    return FileResponse("static/form/upload.html")
 
 @app.post("/upload")
 async def upload_image(file: UploadFile = File(...)):
@@ -89,7 +71,4 @@ async def upload_image(file: UploadFile = File(...)):
 
     logging.info(f"Успіх: зображення {unique_name} завантажено.")
 
-    return {
-        "filename": unique_name,
-        "url": f"/images/{unique_name}"
-    }
+    return JSONResponse({"filename": unique_name, "url": f"/images/{unique_name}"})
