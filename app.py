@@ -1,74 +1,63 @@
-# app.py
-import os
-import uuid
-import logging
-from datetime import datetime
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, File, UploadFile, Request
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+import shutil
+import uvicorn
+
+app = FastAPI()
+
+# === Шляхи ===
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+IMAGES_DIR = BASE_DIR / "images"
+
+IMAGES_DIR.mkdir(exist_ok=True)
+
+# === Статичні файли ===
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
 
-# Конфігурація шляхів
-IMAGES_DIR = "/images"
-LOGS_DIR = "/logs"
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 МБ
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif"}
+# === Головна сторінка ===
+@app.get("/", response_class=HTMLResponse)
+async def index():
+    index_file = STATIC_DIR / "index.html"
+    if index_file.exists():
+        return index_file.read_text(encoding="utf-8")
+    return HTMLResponse("<h1>Static index.html not found</h1>", status_code=404)
 
-# Переконаємось, що папки існують
-os.makedirs(IMAGES_DIR, exist_ok=True)
-os.makedirs(LOGS_DIR, exist_ok=True)
 
-# Налаштування логування
-log_file = os.path.join(LOGS_DIR, "app.log")
-logging.basicConfig(
-    filename=log_file,
-    level=logging.INFO,
-    format='[%(asctime)s] %(levelname)s: %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
-app = FastAPI(title="Image Hosting Service")
-
-# Статичні файли (CSS, JS, картинки фронтенду)
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Головна сторінка
-@app.get("/")
-async def root():
-    return FileResponse("static/image-uploader/index.html")
-@app.get("/images")
-async def images_page():
-    return FileResponse("static/form/images.html")
-
-@app.get("/upload")
-async def upload_page():
-    return FileResponse("static/form/upload.html")
-
+# === Завантаження файлу ===
 @app.post("/upload")
-async def upload_image(file: UploadFile = File(...)):
-    filename = file.filename
-    extension = os.path.splitext(filename)[1].lower()
+async def upload_file(file: UploadFile = File(...)):
+    try:
+        file_path = IMAGES_DIR / file.filename
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        return JSONResponse({
+            "filename": file.filename,
+            "url": f"http://localhost:8080/images/{file.filename}"
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
-    # Перевірка формату файлу
-    if extension not in ALLOWED_EXTENSIONS:
-        msg = f"Непідтримуваний формат файлу ({filename})"
-        logging.error(msg)
-        raise HTTPException(status_code=400, detail=msg)
 
-    # Перевірка розміру файлу
-    contents = await file.read()
-    if len(contents) > MAX_FILE_SIZE:
-        msg = f"Файл перевищує 5 МБ ({filename})"
-        logging.error(msg)
-        raise HTTPException(status_code=400, detail=msg)
+# === Повернення зображення (якщо хочеш прямий FileResponse) ===
+@app.get("/images/{filename}")
+async def get_image(filename: str):
+    file_path = IMAGES_DIR / filename
+    if file_path.exists():
+        return FileResponse(file_path)
+    return JSONResponse({"error": "File not found"}, status_code=404)
 
-    # Генерація унікального імені
-    unique_name = f"{uuid.uuid4().hex}{extension}"
-    save_path = os.path.join(IMAGES_DIR, unique_name)
 
-    # Збереження файлу
-    with open(save_path, "wb") as f:
-        f.write(contents)
+# === 404 для неіснуючих шляхів ===
+@app.exception_handler(404)
+async def not_found(request: Request, exc):
+    return HTMLResponse("<h1>404 Not Found</h1>", status_code=404)
 
-    logging.info(f"Успіх: зображення {unique_name} завантажено.")
 
-    return JSONResponse({"filename": unique_name, "url": f"/images/{unique_name}"})
+# === Запуск ===
+if __name__ == "__main__":
+    uvicorn.run("app:app", host="0.0.0.0", port=8080, reload=True)

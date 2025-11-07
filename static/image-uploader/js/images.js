@@ -1,17 +1,19 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Escape або F5 → назад до upload.html
     document.addEventListener('keydown', function (event) {
         if (event.key === 'F5' || event.key === 'Escape') {
             event.preventDefault();
-            window.location.href = 'upload.html';
+            window.location.href = '/static/form/upload.html';
         }
     });
+
     const fileListWrapper = document.getElementById('file-list-wrapper');
     const uploadRedirectButton = document.getElementById('upload-tab-btn');
 
+    // --- Активна вкладка ---
     const updateTabStyles = () => {
         const uploadTab = document.getElementById('upload-tab-btn');
         const imagesTab = document.getElementById('images-tab-btn');
-        const storedFiles = JSON.parse(localStorage.getItem('uploadedImages')) || [];
 
         const isImagesPage = window.location.pathname.includes('images.html');
 
@@ -25,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // --- Відображення списку зображень ---
     const displayFiles = () => {
         const storedFiles = JSON.parse(localStorage.getItem('uploadedImages')) || [];
         fileListWrapper.innerHTML = '';
@@ -34,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             const container = document.createElement('div');
             container.className = 'file-list-container';
+
             const header = document.createElement('div');
             header.className = 'file-list-header';
             header.innerHTML = `
@@ -49,14 +53,19 @@ document.addEventListener('DOMContentLoaded', () => {
             storedFiles.forEach((fileData, index) => {
                 const fileItem = document.createElement('div');
                 fileItem.className = 'file-list-item';
+                const imageUrl = `http://localhost:8080/images/${fileData.name}`; // ✅ URL з FastAPI
                 fileItem.innerHTML = `
                     <div class="file-col file-col-name">
-                        <span class="file-icon"><img src="../image-uploader/img/icon/Group.png" alt="file icon"></span>
+                        <span class="file-icon"><img src="/static/image-uploader/img/icon/Group.png" alt="file icon"></span>
                         <span class="file-name">${fileData.name}</span>
                     </div>
-                    <div class="file-col file-col-url">https://sharefile.xyz/${fileData.name}</div>
+                    <div class="file-col file-col-url">
+                        <a href="${imageUrl}" target="_blank">${imageUrl}</a>
+                    </div>
                     <div class="file-col file-col-delete">
-                        <button class="delete-btn" data-index="${index}"><img src="../image-uploader/img/icon/delete.png" alt="delete icon"></button>
+                        <button class="delete-btn" data-index="${index}">
+                            <img src="/static/image-uploader/img/icon/delete.png" alt="delete icon">
+                        </button>
                     </div>
                 `;
                 list.appendChild(fileItem);
@@ -70,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTabStyles();
     };
 
+    // --- Видалення ---
     const addDeleteListeners = () => {
         document.querySelectorAll('.delete-btn').forEach(button => {
             button.addEventListener('click', (event) => {
@@ -82,11 +92,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    // --- Перехід на upload ---
     if (uploadRedirectButton) {
         uploadRedirectButton.addEventListener('click', () => {
-            window.location.href = 'upload.html';
+            window.location.href = '/static/form/upload.html';
         });
     }
 
+    // --- Запуск ---
     displayFiles();
 });
